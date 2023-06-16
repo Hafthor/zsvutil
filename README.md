@@ -6,10 +6,10 @@ ZSV (Zip Separated Values) is a columnar data storage format with features
 similar to Parquet, Orc or Avro, however, it is built upon the simple
 technologies of tsv (tab separated values) and zip, making it easy to
 understand, create and consume, but still provides the query performance
-characteristics of a columnar store.
+characteristics of a modern columnar store format.
 
 ## Tenants
-* Be as simple as possible
+* Be simple
 * Prefer mature, widely available technologies
 * Favor human readability
 
@@ -29,11 +29,11 @@ Given **products.tsv** with a header line
 | `BB⇥`  | `Item BB⇥`     | `222.22⇥` | `US⮐`     |
 | `CC⇥`  | `Item CC⇥`     | `333.33⇥` | `US⮐`     |
 
-We would have a zip file products.zsv with the files SKU, Description and Price
-inside. Each file would have just that column’s data.
+we would have a zip file products.zsv with the files SKU, Description and Price
+inside. Each file would have just that column's data.
 
 Note that column names MUST be allowed by .zip format as entry names. Also, the 
-tab character ⇥ MUST NOT be used.
+tab character `⇥` MUST NOT be used in the name.
 
 ### products.zsv
 * SKU `AA⮐BB⮐CC⮐`
@@ -44,22 +44,22 @@ tab character ⇥ MUST NOT be used.
 Note the number of rows in each column MUST be the same, except for Constant 
 Columns (see below). The nature of .zip files makes it possible to seek and read
 just the columns required without having to read/decode the other columns. Note
-that newline ⮐ MUST NOT appear in the actual column data since it is used to
-separate rows. Note that each column row MUST end with a ⮐ including the last
+that newline `⮐` MUST NOT appear in the actual column data since it is used to
+separate rows. Note that each column row MUST end with a `⮐` including the last
 one.
 
 ---
 # Additional features
 These are features that are not required, but may be useful in some cases. They
-are somewhat counter to our tenant of being as simple as possible, but they may
-be useful enough to warrant the additional complexity. These features are mostly
+are somewhat counter to our tenant of being simple, but they may be useful
+enough to warrant the additional complexity. These features are mostly
 independent of each other, so you can use one or more of them without using the
 others.
 
 ---
 ## Constant Columns
 Constant Columns allow us to add an invariant column, which is useful for
-partition keys. Note that the field has no trailing newline ⮐.
+partition keys. Note that the field has no trailing newline `⮐`.
 
 ### products.zsv
 * SKU `AA⮐BB⮐CC⮐`
@@ -71,7 +71,7 @@ partition keys. Note that the field has no trailing newline ⮐.
 ## Compound Columns
 If a collection of columns are always accessed together, it may make sense to
 combine them, for example if SKU and Description were never accessed
-independently, we could make products.zsv look like this:
+independently, we could make **products.zsv** look like this:
 
 ### products.zsv
 * SKU `AA⮐BB⮐CC⮐`
@@ -79,9 +79,9 @@ independently, we could make products.zsv look like this:
 * Region `US`
 
 Note that Constant Columns MUST NOT participate in Compound Columns. Note that
-along with newline ⮐, the tab ⇥ character MUST NOT appear in the column data in
-a Compound Column. Each row in any column MUST include the same number of
-columns as its entry name.
+along with newline `⮐`, the tab `⇥` character MUST NOT appear in the column
+data in a Compound Column. Each row in any column MUST include the same number
+of columns as its entry name.
 
 ---
 ## Repeated Columns
@@ -115,13 +115,13 @@ fetchable without reading through any of the other data. The image data itself
 may be compressed, but Images zip itself would not be compressed inside
 products.zsv.
 
-Note the column name is prefixed with a tab⇥ character to indicate to the reader
-that this is a nested column.
+Note the column name is prefixed with a tab `⇥` character to indicate to the
+reader that this is a nested column.
 
 ---
 ## Row Groups
 Row Groups may be used to split up longer data sets inside a bigger .zsv. This
-is done by repeating the column file names followed by a double tab⇥⇥ and a
+is done by repeating the column file names followed by a double tab `⇥⇥` and a
 unique number for each rowgroup.
 
 ### products.zsv
