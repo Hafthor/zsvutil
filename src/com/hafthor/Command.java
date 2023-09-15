@@ -11,9 +11,6 @@ public class Command {
     byte fieldDelimiter;
     List<String> fields;
 
-    private Command() {
-    }
-
     public static Command CommandFor(final String[] args) {
         if (args.length == 0)
             return new HelpCommand();
@@ -38,8 +35,9 @@ public class Command {
     }
 
     private String parseOptions(final String[] args) {
-        if (inputFile == null)
+        if (inputFile == null || outputFile == null)
             return "missing input/output files";
+
         for (int i = 0; i < args.length; i++) {
             final String arg = args[i], next = i < args.length - 1 ? args[i + 1] : null;
             if ("-d".equals(arg)) {
@@ -48,7 +46,7 @@ public class Command {
                 fieldDelimiter = next.getBytes(StandardCharsets.UTF_8)[0];
                 i++;
             } else if ("-f".equals(arg)) {
-                if (next == null || next.length() == 0)
+                if (next == null || next.isEmpty())
                     return "missing field definitions";
                 fields = Arrays.stream(next.split(",")).toList();
                 i++;
