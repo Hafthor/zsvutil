@@ -13,7 +13,7 @@ and [ZIP](https://en.wikipedia.org/wiki/ZIP_(file_format)), making it easy to
 understand, create and consume, but still provide the query performance
 characteristics of a modern columnar store format. 
 
-## Tenants
+## Tenets
 * Be simple
 * Prefer mature, widely available technologies
 * Favor human readability
@@ -92,7 +92,7 @@ one.
 
 # Additional features
 These are features that are not required, but may be useful in some cases. They
-are somewhat counter to our tenant of being simple, but they may be useful
+are somewhat counter to our tenet of being simple, but they may be useful
 enough to warrant the additional complexity. These features are mostly
 independent of each other, so you can use one or more of them without using the
 others.
