@@ -6,12 +6,12 @@ A utility for converting TSV files from/to ZSV files.
 ## TL;DR
 ZSV (ZIP Separated Values) is a columnar data storage format with features
 similar to [Parquet](https://parquet.apache.org) or 
-[Orc](https://orc.apache.org), however, it is built upon the simple
+[ORC](https://orc.apache.org), however, it is built upon the simple
 technologies of 
 [TSV (tab separated values)](https://en.wikipedia.org/wiki/Tab-separated_values)
 and [ZIP](https://en.wikipedia.org/wiki/ZIP_(file_format)), making it easy to
 understand, create and consume, but still provide the query performance
-characteristics of a modern columnar store format. 
+characteristics of a modern columnar store format.
 
 ## Tenets
 * Be simple
@@ -45,13 +45,25 @@ that can be confusing, ambiguous and inconsistent. JSON is a good format
 for nested data, but it is not as easy to read or write as TSV. JSON is 
 also not as efficient as TSV for simple tabular data.
 
+### Why not use a binary format like Parquet or ORC does?
+Binary formats like Parquet or ORC are more read-time efficient than ZSV, but
+they are also more complex and are not human-readable. They are also not as
+easy to parse or generate as plain text. Plain text formats are more 
+future-proof and expressive than binary formats. For example, it is easier to
+specify a numeric column as having a certain precision in a text format than in
+a binary format. Likewise, a date time, where you may wish to capture the time
+and the precision in the field. Binary formats would require specification of
+the schema of the data, which we are trying to avoid. Binary formats are also
+more resistant to standard compression algorithms.
+
 ### What are some key shortcomings of ZSV?
 ZSV is not a good choice for binary or unstructured textual data. The main
 limitation is that the data in the columns must not include the tab character
 `⇥` or newline character `⮐`. This is a limitation of the TSV format. Any
 escaping or encoding of these characters would make the format less
 human-readable, harder to parse and could introduce ambiguity and consistency
-problems.
+problems. If you need to store binary data, you can store it in a nested ZIP
+column, or you can use the CSV or JSON alternative inner formats.
 
 ### How well is ZSV supported by tools and platforms?
 Today ZSV is not widely supported by tools and platforms, but it is easy to
@@ -198,13 +210,34 @@ all in a bare keyname JSON format.
 * Region _{}_ `US`
 
 ## Alternative CSV Inner Format
-While TSV is the preferred inner format for ZSV, a form using CSV is also
-possible. Each line has comma separated values and each value is either a quoted
-string with JSON escapes possible, a JSON number, or a bare string, but with no
-escapes and with forbidden characters.
+While TSV is the preferred inner format for ZSV, a form using 
+[CSV](https://en.wikipedia.org/wiki/Comma-separated_values) is also possible. 
+Each line has comma separated values and each value is either a quoted string 
+with JSON escapes possible, a number, or a bare string, but with no escapes or
+forbidden characters.
 
 ### products.zsv
 * SKU `"AA"⮐"BB"⮐"CC"⮐`
 * Description⇥Price `"Item AA",111.11⮐"Item BB",222.22⮐"Item CC",333.33⮐`
 * Price `111.11⮐ 222.22⮐ 333.33⮐`
 * Region `"US"`
+
+Note that the numbers are not ints or floats, but are just unquoted strings
+that represent a number of arbitrary scale and precision.
+
+## Alternative JSON Inner Format
+While TSV is the preferred inner format for ZSV, a form using 
+[JSON](https://www.json.org/json-en.html) is also possible. Each column is
+represented by an array of JSON strings or numbers. Compound columns are
+represented by an array of arrays of JSON strings or numbers. The JSON strings
+are quoted strings with JSON escapes possible. Repeated columns are represented
+by a JSON string or number.
+
+### products.zsv
+* SKU `["AA","BB","CC"]`
+* Description⇥Price `[["Item AA",111.11],["Item BB",222.22],["Item CC",333.33]]`
+* Price `[111.11,222.22,333.33]`
+* Region `"US"`
+
+Note that the JSON numbers are not ints or floats, but are strings that
+represent a number of arbitrary scale and precision.
