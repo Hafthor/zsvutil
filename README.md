@@ -5,8 +5,8 @@ A utility for converting TSV files from/to ZSV files.
 
 ## TL;DR
 ZSV (ZIP Separated Values) is a columnar data storage format with features
-similar to [Parquet](https://parquet.apache.org), [Orc](https://orc.apache.org)
-or [Avro](https://avro.apache.org), however, it is built upon the simple
+similar to [Parquet](https://parquet.apache.org) or 
+[Orc](https://orc.apache.org), however, it is built upon the simple
 technologies of 
 [TSV (tab separated values)](https://en.wikipedia.org/wiki/Tab-separated_values)
 and [ZIP](https://en.wikipedia.org/wiki/ZIP_(file_format)), making it easy to
