@@ -1,5 +1,5 @@
 # zsvutil
-A utility for converting TSV files from/to ZSV files.
+A utility for converting JSON files from/to ZSV files.
 
 # Introducing ZSV - ZIP Separated Values
 
@@ -7,25 +7,22 @@ A utility for converting TSV files from/to ZSV files.
 ZSV (ZIP Separated Values) is a columnar data storage format with features
 similar to [Parquet](https://parquet.apache.org) or 
 [ORC](https://orc.apache.org), however, it is built upon the simple
-technologies of 
-[TSV (tab separated values)](https://en.wikipedia.org/wiki/Tab-separated_values)
-and [ZIP](https://en.wikipedia.org/wiki/ZIP_(file_format)), making it easy to
+technologies of [JSON](https://www.json.org/json-en.html) and
+[ZIP](https://en.wikipedia.org/wiki/ZIP_(file_format)), making it easy to
 understand, create and consume, but still provide the query performance
 characteristics of a modern columnar store format.
 
 ## Tenets
-* Be simple
-* Prefer mature, widely available technologies
+* Be simple - remember: complexity is the enemy of security
+* Prefer mature, widely available technologies - every major programming
+  language has libraries for JSON and ZIP
 * Favor human readability
-* Be easy to parse and generate
-* Be efficient for simple tabular data
-* Prefer longevity over novelty
 
 ## Description
-Given an original source, **products.tsv**, zsvutil import creates a
+Given an original source, **products.json**, zsvutil import creates a
 **products.zsv** file that is just a .zip file with a file inside for each
 column, for example, SKU, Description and Price. Inside those files is just the
-TSV for that column, compressed.
+JSON for that column, compressed.
 
 ## FAQ
 ### Why is ZSV built on ZIP file format? Why not use .targz?
@@ -37,18 +34,18 @@ decompressing the whole stream up to that file. ZIP files are a collection of
 individually compressed files, with a directory as a footer to the file, which
 makes it easy to seek to a specific file without reading the whole file.
 
-### Why is ZSV built on TSV format? Why not CSV? Why not JSON?
-TSV is a simple, human-readable format that is easy to understand and
+### Why is ZSV built on JSON format? Why not CSV or TSV?
+JSON is a simple, human-readable format that is easy to understand and
 manipulate. It is also trivial to parse and generate. CSV is also a good
-choice, but it is more complex than TSV, with quoting and escaping rules
-that can be confusing, ambiguous and inconsistent. JSON is a good format
-for nested data, but it is not as easy to read or write as TSV. JSON is 
-also not as efficient as TSV for simple tabular data.
+choice but with quoting and escaping rules that can be confusing, ambiguous and
+inconsistent. TSV has the limitation of not having any escapes so would have
+forbidden characters. That said, CSV and TSV are available as alternate inner
+formats.
 
 ### Why not use a binary format like Parquet or ORC does?
 Binary formats like Parquet or ORC are more read-time efficient than ZSV, but
 they are also more complex and are not human-readable. They are also not as
-easy to parse or generate as plain text. Plain text formats are more 
+easy to parse or generate as JSON. JSON and other plain text formats are more 
 future-proof and expressive than binary formats. For example, it is easier to
 specify a numeric column as having a certain precision in a text format than in
 a binary format. Likewise, a date time, where you may wish to capture the time
@@ -56,51 +53,41 @@ and the precision in the field. Binary formats would require specification of
 the schema of the data, which we are trying to avoid. Binary formats are also
 more resistant to standard compression algorithms.
 
-### What are some key shortcomings of ZSV?
-ZSV is not a good choice for binary or unstructured textual data. The main
-limitation is that the data in the columns must not include the tab character
-`⇥` or newline character `⮐`. This is a limitation of the TSV format. Any
-escaping or encoding of these characters would make the format less
-human-readable, harder to parse and could introduce ambiguity and consistency
-problems. If you need to store binary data, you can store it in a nested ZIP
-column, or you can use the CSV or JSON alternative inner formats.
-
 ### How well is ZSV supported by tools and platforms?
 Today ZSV is not widely supported by tools and platforms, but it is easy to
-convert between TSV and ZSV using zsvutil. It should be relatively easy to add
-support for ZSV to any tool that supports columnar data formats.
+convert between JSON and ZSV using zsvutil. It should be relatively easy to add
+support for ZSV to any tool that supports other columnar data formats.
 
 ### What is an ideal use case for ZSV?
-If you are currently using TSV files and want to improve query performance
+If you are currently using JSON files and want to improve query performance
 without changing your data format, ZSV is a good choice.
 
 ## Simple Columnar Storage Example
-Given **products.tsv** with a header line
+Given **products.json**
 
-| `SKU⇥` | `Description⇥` | `Price⇥`  | `Region⮐` |
-|--------|----------------|-----------|-----------|
-| `AA⇥`  | `Item AA⇥`     | `111.11⇥` | `US⮐`     |
-| `BB⇥`  | `Item BB⇥`     | `222.22⇥` | `US⮐`     |
-| `CC⇥`  | `Item CC⇥`     | `333.33⇥` | `US⮐`     |
+```json
+[
+  {"SKU": "AA", "Description": "Item AA", "Price": 111.11, "Region": "US"},
+  {"SKU": "BB", "Description": "Item BB", "Price": 222.22, "Region": "US"},
+  {"SKU": "CC", "Description": "Item CC", "Price": 333.33, "Region": "US"},
+  {"SKU": "DD",                           "Price": 444.44, "Region": "US"}
+]
+```
 
 we would have a ZIP file products.zsv with the files SKU, Description and Price
 inside. Each file would have just that column's data.
 
-Note that column names MUST be allowed by .zip format as entry names. Also, the 
-tab character `⇥` MUST NOT be used in the name.
+Note that column names MUST be allowed by .zip format as entry names.
 
 ### products.zsv
-* SKU `AA⮐BB⮐CC⮐`
-* Description `Item AA⮐Item BB⮐Item CC⮐`
-* Price `111.11⮐222.22⮐333.33⮐`
-* Region `US⮐US⮐US⮐`
+* SKU `["AA","BB","CC","DD"]`
+* Description `["Item AA","Item BB","Item CC",null]`
+* Price `[111.11,222.22,333.33,444.44]`
+* Region `["US","US","US","US"]`
 
 Note the number of rows in each column MUST be the same, except for Constant 
 Columns (see below). The nature of .zip files makes it possible to seek and read
-just the columns required without having to read/decode the other columns. Note
-that newline `⮐` MUST NOT appear in the actual column data since it is used to
-separate rows. Note that each column row MUST end with a `⮐` including the last
-one.
+just the columns required without having to read/decode the other columns.
 
 # Additional features
 These are features that are not required, but may be useful in some cases. They
@@ -111,133 +98,124 @@ others.
 
 ## Constant Columns
 Constant Columns allow us to add an invariant column, which is useful for
-partition keys. Note that the field has no trailing newline `⮐`.
+partition keys. Note the constant column is a single un-array-wrapped JSON
+string or number.
 
 ### products.zsv
-* SKU `AA⮐BB⮐CC⮐`
-* Description `Item AA⮐Item BB⮐Item CC⮐`
-* Price `111.11⮐222.22⮐333.33⮐`
-* Region `US`
+* SKU `["AA","BB","CC","DD"]`
+* Description `["Item AA","Item BB","Item CC",null]`
+* Price `[111.11,222.22,333.33,444.44]`
+* Region `"US"`
 
-## Compound Columns
-If a collection of columns are always accessed together, it may make sense to
-combine them, for example if SKU and Description were never accessed
-independently, we could make **products.zsv** look like this:
-
-### products.zsv
-* SKU `AA⮐BB⮐CC⮐`
-* Description⇥Price `Item AA⇥111.11⮐Item BB⇥222.22⮐Item CC⇥333.33⮐`
-* Region `US`
-
-Note that Constant Columns MUST NOT participate in Compound Columns. Note that
-along with newline `⮐`, the tab `⇥` character MUST NOT appear in the column
-data in a Compound Column. Each row in any column MUST include the same number
-of columns as its entry name.
-
-## Repeated Columns
-Data may be repeated using Compound Columns, if desired, for example:
+## Binary Data
+It is recommended, but not part of the specification of ZSV, to store binary
+data, such as images, as a base64 JSON string.
 
 ### products.zsv
-* SKU `AA⮐BB⮐CC⮐`
-* Description⇥Price `Item AA⇥111.11⮐Item BB⇥222.22⮐Item CC⇥333.33⮐`
-* Price `111.11⮐222.22⮐333.33⮐`
-* Region `US`
+* SKU `["AA","BB","CC","DD"]`
+* Description `["Item AA","Item BB","Item CC",null]`
+* Price `[111.11,222.22,333.33,444.44]`
+* Region `"US"`
+* Images `["base64image1==","base64image2==",null,"base64image4=="]`
 
-It is up to the reader to decide the optimal combination of ZIP entries to read
-to meet the requirements and avoid reading unnecessary data. The same
-combination of columns may appear in a different order, especially when the data
-is sorted.
-
-## Nested/Binary Data
-Data may be nested by storing a ZIP of compressed row blob files inside the ZSV.
+An alternative is to store the binary data in a ZIP file that is embedded in
+the zsv file.
 
 ### products.zsv
-* SKU `AA⮐BB⮐CC⮐`
-* Description⇥Price `Item AA⇥111.11⮐Item BB⇥222.22⮐Item CC⇥333.33⮐`
-* ⇥Images (inner stored ZIP)
-  * 0 `<<Image data for AA>>`
-  * 1 `<<Image data for BB>>`
-  * 2 `<<Image data for CC>>`
+* SKU `["AA","BB","CC","DD"]`
+* Description `["Item AA","Item BB","Item CC",null]`
+* Price `[111.11,222.22,333.33,444.44]`
+* Region `"US"`
+* Images (inner stored ZIP - not compressed)
+  * 0 `<<Compressed image data for AA>>`
+  * 1 `<<Compressed image data for BB>>`
+  * 3 `<<Compressed image data for DD>>`
 
-Data stored inside, Image data for BB, for example, is directly seekable and
-fetchable without reading through any of the other data. The image data itself
-may be compressed, but Images ZIP itself would not be compressed inside
-products.zsv.
-
-Note the column name is prefixed with a tab `⇥` character to indicate to the
-reader that this is a nested column.
+Note that the inner Images file is not a .zsv file, but a regular .zip file with
+one file for each record that has a non-null value. The inner file name MUST
+be the record number of the data relative to the other columns. In the example
+above, row 2 has a null value for the image, so there is no file for it in the
+inner ZIP file. The inner ZIP file SHOULD NOT be stored with compression in the
+ZSV file, however, the individual inner files SHOULD be compressed. This is to
+allow for seek operations to access the individual files in the inner ZIP file.
 
 ## Row Groups
-Row Groups may be used to split up longer data sets inside a bigger .zsv. This
-is done by repeating the column file names followed by a double tab `⇥⇥` and a
-unique number for each rowgroup.
+While it is recommended to use ZSV file-level partitioning, row groups may be
+used to split up longer data sets inside a bigger .zsv. This is done by 
+repeating the column file names followed by a double underscore `__`
+and a unique number for each rowgroup.
 
 ### products.zsv
-* SKU⇥⇥0 `AA⮐BB⮐`
-* Description⇥Price⇥⇥0 `Item AA⇥111.11⮐Item BB⇥222.22⮐`
-* Region⇥⇥0 `US`
-* SKU⇥⇥1 `CC⮐`
-* Description⇥Price⇥⇥1 `Item CC⇥333.33⮐`
-* Region⇥⇥1 `US`
+* SKU__0 `["AA","BB"]`
+* Description__0 `["Item AA","Item BB"]`
+* Price__0 `[111.11,222.22]`
+* Region__0 `"US"`
+* SKU__1 `["CC","DD"]`
+* Description__1 `["Item CC",null]`
+* Price__1 `[333.33,444.44]`
+* Region__1 `"US"`
 
 Note the number of rows in each column of the row group MUST be equal. The
 columns referenced in each row group MUST be equal. Columns referenced in each
 row group SHOULD be in the same order and grouped together, however, this is not
 a strict requirement and readers MUST NOT assume an order of files. Constant
-columns may be different in each row group when named with the double tab or
-there can be a single constant column as though there were no rowgroups.
+columns may be different in each row group when named with the double underscore
+or there can be a single constant column as though there were no rowgroups.
 
 ### products.zsv
-* SKU⇥⇥0 `AA⮐BB⮐`
-* Description⇥Price⇥⇥0 `Item AA⇥111.11⮐Item BB⇥222.22⮐`
-* SKU⇥⇥1 `CC⮐`
-* Description⇥Price⇥⇥1 `Item CC⇥333.33⮐`
-* Region `US`
+* SKU__0 `["AA","BB"]`
+* Description__0 `["Item AA","Item BB"]`
+* Price__0 `[111.11,222.22]`
+* SKU__1 `["CC","DD"]`
+* Description__1 `["Item CC",null]`
+* Price__1 `[333.33,444.44]`
+* Region `"US"`
 
 ## Metadata
 ZIP files support having comments on file entries inside. This may be used to
 hold metadata about the contents that are otherwise unavailable, such as row
 counts, partition information, sorting, distinct values, min/max text or values,
-all in a bare keyname JSON format.
+all in a JSON format.
 
 ### products.zsv
-* SKU⇥⇥0 _{rows:2, distinct:2, maxlength:2, min:"AA", max:"BB"}_ `AA⮐BB⮐`
-* Description⇥⇥0 _{rows:2, distinct:2, maxlength:7}_ `Item AA⮐Item BB⮐`
-* Price⇥⇥0 _{rows:2, distinct:2, minvalue:111.11, maxvalue:222.22}_ `111.11⮐222.22⮐`
-* SKU⇥⇥1 _{rows:1, distinct:1, maxlength:2, min:"CC", max:"CC"}_ `CC⮐`
-* Description⇥⇥1 _{rows:1, distinct:1, maxlength:7}_ `Item CC⮐`
-* Price⇥⇥1 _{rows:1, distinct:1, minvalue:333.33, maxvalue:333.33}_ `333.33⮐`
-* Region _{}_ `US`
+* SKU _{"format":"JSON", "rows":4, "distinct":4, "maxlength":2, "minimum":"AA", "maximum":"DD"}_ `["AA","BB","CC","DD"]`
+* Description _{"format":"JSON", "rows":4, "distinct":3, "maxlength":7}_ `["Item AA","Item BB","Item CC",null]`
+* Price _{"format":"JSON", "rows":4, "distinct":4, "minimum":111.11, "maximum":444.44}_ `[111.11,222.22,333.33,444.44]`
+* Region _{"format":"JSON", "constant":true}_ `"US"`
 
-## Alternative CSV Inner Format
-While TSV is the preferred inner format for ZSV, a form using 
-[CSV](https://en.wikipedia.org/wiki/Comma-separated_values) is also possible. 
-Each line has comma separated values and each value is either a quoted string 
-with JSON escapes possible, a number, or a bare string, but with no escapes or
-forbidden characters.
+Note that the metadata specification of "format" being "JSON" is an optional
+indicator of the inner format of the column, not the metadata itself. The
+metadata is always JSON.
+
+## Encryption
+ZIP files support encryption of individual files. This may be used to store
+sensitive data in a ZSV file. How the keys are stored and managed is outside
+the scope of this specification, but it is recommended to use file metadata to
+store the encryption key ID for each encrypted column file.
+
+## Alternative CSV/TSV Inner Formats
+While JSON is the preferred inner format for ZSV, a form using 
+[CSV](https://en.wikipedia.org/wiki/Comma-separated_values) or
+[TSV](https://en.wikipedia.org/wiki/Tab-separated_values) is also possible. 
+For CSV, each line has comma separated values and each value is either a quoted
+string with JSON escapes possible, a number, or a bare string, but with no
+escapes or forbidden characters. For TSV, each line has tab separated values
+and each value is just an unescaped unquoted string with no escapes or forbidden
+characters (i.e. tab `⇥` or newline `⮐`).
+
+### products.zsv 
+* SKU _{"format":"CSV"}_ `"AA"⮐"BB"⮐"CC"⮐"DD"⮐`
+* Description _{"format":"CSV"}_ `"Item AA"⮐"Item BB"⮐"Item CC"⮐⮐`
+* Price _{"format":"CSV"}_ `111.11⮐ 222.22⮐ 333.33⮐444.44⮐`
+* Region _{"format":"CSV", "constant":true}_ `"US"`
 
 ### products.zsv
-* SKU `"AA"⮐"BB"⮐"CC"⮐`
-* Description⇥Price `"Item AA",111.11⮐"Item BB",222.22⮐"Item CC",333.33⮐`
-* Price `111.11⮐ 222.22⮐ 333.33⮐`
-* Region `"US"`
+* SKU _{"format":"TSV"}_ `AA⮐BB⮐CC⮐DD⮐`
+* Description _{"format":"TSV"}_ `Item AA⮐Item BB⮐Item CC⮐⮐`
+* Price _{"format":"TSV"}_ `111.11⮐ 222.22⮐ 333.33⮐444.44⮐`
+* Region _{"format":"TSV", "constant":true}_ `US`
 
 Note that the numbers are not ints or floats, but are just unquoted strings
-that represent a number of arbitrary scale and precision.
-
-## Alternative JSON Inner Format
-While TSV is the preferred inner format for ZSV, a form using 
-[JSON](https://www.json.org/json-en.html) is also possible. Each column is
-represented by an array of JSON strings or numbers. Compound columns are
-represented by an array of arrays of JSON strings or numbers. The JSON strings
-are quoted strings with JSON escapes possible. Repeated columns are represented
-by a JSON string or number.
-
-### products.zsv
-* SKU `["AA","BB","CC"]`
-* Description⇥Price `[["Item AA",111.11],["Item BB",222.22],["Item CC",333.33]]`
-* Price `[111.11,222.22,333.33]`
-* Region `"US"`
-
-Note that the JSON numbers are not ints or floats, but are strings that
-represent a number of arbitrary scale and precision.
+that represent a number of arbitrary scale and precision. Also note that
+neither alternative inner format supports null values as being distinct from
+empty strings.

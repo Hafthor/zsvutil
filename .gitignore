@@ -26,3 +26,8 @@ replay_pid*
 # IntelliJ
 .idea/*
 *.iml
+
+# OS Noise
+.DS_Store
+desktop.ini
+

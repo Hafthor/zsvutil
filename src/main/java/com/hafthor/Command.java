@@ -31,7 +31,7 @@ public class Command {
         fields = null;
         inputFile = args.length >= 3 ? args[args.length - 2] : null;
         outputFile = args.length >= 3 ? args[args.length - 1] : null;
-        errorMessage = parseOptions(Arrays.copyOfRange(args, 0, args.length - 2));
+        errorMessage = parseOptions(Arrays.copyOfRange(args, 0, Math.max(0, args.length - 2)));
     }
 
     private String parseOptions(final String[] args) {
