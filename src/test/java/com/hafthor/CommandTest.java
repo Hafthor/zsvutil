@@ -3,6 +3,8 @@ package com.hafthor;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -43,11 +45,21 @@ class CommandTest {
 
     @Test
     void executeHelp() {
-        assertEquals(0, new HelpCommand().execute());
+        final var help = new HelpCommand();
+        try (final var nullOut = new PrintStream(OutputStream.nullOutputStream())) {
+            help.out = nullOut;
+            help.err = null;
+            assertEquals(0, help.execute());
+        }
     }
 
     @Test
     void executeError() throws IOException {
-        assertEquals(1, new ErrorCommand("error").execute());
+        final var err = new ErrorCommand("error");
+        try (final var nullOut = new PrintStream(OutputStream.nullOutputStream())) {
+            err.out = null;
+            err.err = nullOut;
+            assertEquals(1, err.execute());
+        }
     }
 }

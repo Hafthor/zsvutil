@@ -37,9 +37,13 @@ public class ExportCommandTest {
         final File f2 = File.createTempFile("test", ".json");
         f2.deleteOnExit();
         final ExportCommand cmd = (ExportCommand) Command.CommandFor(new String[]{"export", f.getAbsolutePath(), f2.getAbsolutePath()});
-        assertEquals(0, cmd.execute());
-        f.delete();
+        try (final var nullOut = new PrintStream(OutputStream.nullOutputStream())) {
+            cmd.out = nullOut;
+            cmd.err = null;
+            assertEquals(0, cmd.execute());
+        }
+        assertTrue(f.delete());
         assertEquals("[{'source':'a','sku':1,'description':'desc1','timestamp':'2020-01-01T00:00:00Z'},{'source':'b','sku':2,'description':'desc2','timestamp':'2020-01-02T00:00:00Z'},{'source':'c','sku':3,'description':'desc3','timestamp':'2020-01-03T00:00:00Z'}]".replaceAll("'","\""), Files.readString(f2.toPath(), StandardCharsets.UTF_8));
-        f2.delete();
+        assertTrue(f2.delete());
     }
 }

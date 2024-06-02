@@ -1,11 +1,11 @@
 package com.hafthor;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
 public class Command {
+    PrintStream out = System.out, err = System.err;
     final String inputFile, outputFile;
     String errorMessage;
     boolean isGzip;
@@ -21,6 +21,10 @@ public class Command {
             return new ImportCommand(options);
         if ("export".equals(command))
             return new ExportCommand(options);
+        if ("import-v2".equals(command))
+            return new ImportCommandV2(options);
+        if ("export-v2".equals(command))
+            return new ExportCommandV2(options);
         return new ErrorCommand("invalid command " + command);
     }
 
@@ -41,7 +45,7 @@ public class Command {
             if ("-f".equals(arg)) {
                 if (next == null || next.isEmpty())
                     return "missing field definitions";
-                fields = Arrays.stream(next.split(",")).map(f -> f.trim()).toList();
+                fields = Arrays.stream(next.split(",")).map(String::trim).toList();
                 i++;
             } else if ("-g".equals(arg))
                 isGzip = true;
@@ -54,7 +58,7 @@ public class Command {
     public int execute() throws IOException {
         if (errorMessage == null)
             return 0;
-        System.err.println(errorMessage);
+        err.println(errorMessage);
         return 1;
     }
 }

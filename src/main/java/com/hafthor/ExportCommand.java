@@ -1,14 +1,12 @@
 package com.hafthor;
 
 import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,28 +29,28 @@ public class ExportCommand extends Command {
         }
     }
 
-    int exportFile(final OutputStream out) throws IOException {
+    int exportFile(final OutputStream fo) throws IOException {
         // read the zip file making names and cols
         final var fieldsMap = new HashMap<String, JsonNode>();
         final var fieldsList = new ArrayList<String>();
         final var fields = this.fields == null ? null : new HashSet<>(this.fields);
         final var mapper = new ObjectMapper();
-        try (final var z = new ZipFile(inputFile)) {
-            final var e = z.entries();
+        try (final var zip = new ZipFile(inputFile)) {
+            final var e = zip.entries();
             while (e.hasMoreElements()) {
                 final var entry = e.nextElement();
                 final var entryName = entry.getName();
                 if (fields == null || fields.contains(entryName)) {
                     fieldsList.add(entryName);
-                    try (final var in = z.getInputStream(entry)) {
-                        System.err.print("Reading " + entryName + "... ");
-                        final var node = mapper.readTree(in);
+                    try (final var fi = zip.getInputStream(entry)) {
+                        out.print("Reading " + entryName + "... ");
+                        final var node = mapper.readTree(fi);
                         if (!node.isArray()) {
                             errorMessage = "Error: root of JSON tree must be an array.";
                             return 1;
                         }
                         fieldsMap.put(entryName, node);
-                        System.err.println("Done.");
+                        out.println("Done.");
                     }
                 }
             }
@@ -65,22 +63,21 @@ public class ExportCommand extends Command {
 
         final int rows = fieldsMap.get(fieldsList.get(0)).size();
 
-        // write output header
-        System.err.print("Writing " + outputFile + "... ");
-
         // write output
-        try (final var g = mapper.createGenerator(out, JsonEncoding.UTF8)) {
-            g.writeStartArray();
+        out.print("Writing " + outputFile + "... ");
+        try (final var gen = mapper.createGenerator(fo, JsonEncoding.UTF8)) {
+            gen.writeStartArray();
             for (int row = 0; row < rows; row++) {
-                g.writeStartObject();
+                gen.writeStartObject();
                 for (final var fieldName : fieldsList) {
-                    g.writeFieldName(fieldName);
-                    g.writeTree(fieldsMap.get(fieldName).get(row));
+                    gen.writeFieldName(fieldName);
+                    gen.writeTree(fieldsMap.get(fieldName).get(row));
                 }
-                g.writeEndObject();
+                gen.writeEndObject();
             }
-            g.writeEndArray();
+            gen.writeEndArray();
         }
+        out.println("Done.");
         return 0;
     }
 }

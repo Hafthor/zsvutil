@@ -2,10 +2,7 @@ package com.hafthor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,20 +17,22 @@ public class ImportCommand extends Command {
 
     @Override
     public int execute() throws IOException {
-        try (final var fi = new FileInputStream(inputFile)) {
-            if (!isGzip)
-                return importFile(fi);
-            try (final var gz = new GZIPInputStream(fi, 65536)) {
-                return importFile(gz);
+        try (final var fo = new FileOutputStream(outputFile)) {
+            try (final var fi = new FileInputStream(inputFile)) {
+                if (!isGzip)
+                    return importFile(fi, fo);
+                try (final var gz = new GZIPInputStream(fi, 65536)) {
+                    return importFile(gz, fo);
+                }
             }
         }
     }
 
-    private int importFile(final InputStream in) throws IOException {
+    private int importFile(final InputStream fi, final OutputStream fo) throws IOException {
         // read source
-        System.err.print("Reading " + inputFile + "... ");
+        out.print("Reading " + inputFile + "... ");
         final var mapper = new ObjectMapper();
-        final var tree = mapper.readTree(in);
+        final var tree = mapper.readTree(fi);
         // root of tree must be an array
         if (!tree.isArray()) {
             errorMessage = "Error: root of JSON tree must be an array.";
@@ -71,22 +70,20 @@ public class ImportCommand extends Command {
                 if (fieldsSet.contains(key))
                     fieldsMap.get(key).append(',').append(f.getValue().toString());
             });
-        System.err.println("Done.");
+        out.println("Done.");
 
         // write zip
-        try (final var fo = new FileOutputStream(outputFile)) {
-            try (final var zip = new ZipOutputStream(fo)) {
-                for (final var field : fieldsList) {
-                    System.err.print("Writing field " + field + "... ");
-                    final var entry = new ZipEntry(field);
-                    entry.setComment("{\"rows\":" + rowCount + "}");
-                    zip.putNextEntry(entry);
-                    zip.write('[');
-                    zip.write(fieldsMap.get(field).substring(1).getBytes());
-                    zip.write(']');
-                    zip.closeEntry();
-                    System.err.println("Done.");
-                }
+        try (final var zip = new ZipOutputStream(fo)) {
+            for (final var field : fieldsList) {
+                out.print("Writing field " + field + "... ");
+                final var entry = new ZipEntry(field);
+                entry.setComment("{\"rows\":" + rowCount + "}");
+                zip.putNextEntry(entry);
+                zip.write('[');
+                zip.write(fieldsMap.get(field).substring(1).getBytes());
+                zip.write(']');
+                zip.closeEntry();
+                out.println("Done.");
             }
         }
         return 0;
