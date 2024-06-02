@@ -6,7 +6,8 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Command {
-    String errorMessage, inputFile, outputFile;
+    final String inputFile, outputFile;
+    String errorMessage;
     boolean isGzip;
     List<String> fields;
 
@@ -40,7 +41,7 @@ public class Command {
             if ("-f".equals(arg)) {
                 if (next == null || next.isEmpty())
                     return "missing field definitions";
-                fields = Arrays.stream(next.split(",")).toList();
+                fields = Arrays.stream(next.split(",")).map(f -> f.trim()).toList();
                 i++;
             } else if ("-g".equals(arg))
                 isGzip = true;
