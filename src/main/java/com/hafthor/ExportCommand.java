@@ -1,5 +1,10 @@
 package com.hafthor;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,51 +32,35 @@ public class ExportCommand extends Command {
     int exportFile(final OutputStream out) throws IOException {
         // read the zip file making names and cols
         final var names = new ArrayList<String>();
-        final var cols = new ArrayList<byte[]>();
+        final var cols = new ArrayList<JsonNode>();
+        final var mapper = new ObjectMapper();
         try (final var z = new ZipFile(inputFile)) {
             final var e = z.entries();
             while (e.hasMoreElements()) {
                 final var entry = e.nextElement();
-                names.add(entry.getName());
-                try (final var in = z.getInputStream(entry)) {
-                    System.err.print("Reading " + entry.getName() + "... ");
-                    cols.add(in.readAllBytes());
-                    System.err.println("Done.");
+                if (fields == null || fields.stream().anyMatch(f -> f.equals(entry.getName()))) {
+                    names.add(entry.getName());
+                    try (final var in = z.getInputStream(entry)) {
+                        System.err.print("Reading " + entry.getName() + "... ");
+                        cols.add(mapper.readTree(in));
+                        System.err.println("Done.");
+                    }
                 }
             }
         }
 
         // write output header
         System.err.print("Writing " + outputFile + "... ");
-        final var sis = new int[cols.size()];
-        if (hasHeader) {
-            for (int i = 0; i < names.size(); i++) {
-                if (i > 0)
-                    out.write(fieldDelimiter);
-                out.write(names.get(i).getBytes(StandardCharsets.UTF_8));
-            }
-            out.write('\n');
-        }
 
         // write output
-        final int cl = sis.length, lastCol = cl - 1;
-        for (var all = true; all; ) {
-            for (int i, c = 0; c < cl; c++) {
-                final var line = cols.get(c);
-                final int cx = line.length, si = sis[c];
-                for (i = si; i < cx; i++)
-                    if (line[i] == '\n')
-                        break;
-                if (i >= cx) {
-                    all = false;
-                    if (c == 0)
-                        break;
-                }
-                out.write(line, si, i - si);
-                out.write(c == lastCol ? '\n' : fieldDelimiter);
-                sis[c] = i + 1;
-            }
+        JsonGenerator g = mapper.createGenerator(out, JsonEncoding.UTF8);
+        g.writeStartArray();
+        for (int i = 0; i < cols.size(); i++) {
+            g.writeFieldName(names.get(i));
+            final var col = cols.get(i);
+            g.writeTree(col);
         }
+        g.writeEndArray();
         return 0;
     }
 }

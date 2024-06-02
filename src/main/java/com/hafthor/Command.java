@@ -7,8 +7,7 @@ import java.util.List;
 
 public class Command {
     String errorMessage, inputFile, outputFile;
-    boolean hasHeader, isGzip;
-    byte fieldDelimiter;
+    boolean isGzip;
     List<String> fields;
 
     public static Command CommandFor(final String[] args) {
@@ -25,12 +24,10 @@ public class Command {
     }
 
     protected Command(final String[] args) {
-        fieldDelimiter = '\t';
-        hasHeader = false;
         isGzip = false;
         fields = null;
-        inputFile = args.length >= 3 ? args[args.length - 2] : null;
-        outputFile = args.length >= 3 ? args[args.length - 1] : null;
+        inputFile = args.length >= 2 ? args[args.length - 2] : null;
+        outputFile = args.length >= 2 ? args[args.length - 1] : null;
         errorMessage = parseOptions(Arrays.copyOfRange(args, 0, Math.max(0, args.length - 2)));
     }
 
@@ -40,19 +37,12 @@ public class Command {
 
         for (int i = 0; i < args.length; i++) {
             final String arg = args[i], next = i < args.length - 1 ? args[i + 1] : null;
-            if ("-d".equals(arg)) {
-                if (next == null || next.length() != 1)
-                    return "missing field delimiter character";
-                fieldDelimiter = next.getBytes(StandardCharsets.UTF_8)[0];
-                i++;
-            } else if ("-f".equals(arg)) {
+            if ("-f".equals(arg)) {
                 if (next == null || next.isEmpty())
                     return "missing field definitions";
                 fields = Arrays.stream(next.split(",")).toList();
                 i++;
-            } else if ("-h".equals(arg))
-                hasHeader = true;
-            else if ("-g".equals(arg))
+            } else if ("-g".equals(arg))
                 isGzip = true;
             else
                 return "invalid option '" + arg + "'";

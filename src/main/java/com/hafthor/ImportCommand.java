@@ -1,10 +1,14 @@
 package com.hafthor;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -28,83 +32,65 @@ public class ImportCommand extends Command {
     private int importFile(final InputStream in) throws IOException {
         // read source
         System.err.print("Reading " + inputFile + "... ");
-        final var inlines = in.readAllBytes();
-        System.err.println("Done.");
-        final var line = new ArrayList<String>();
-        final var fd = fieldDelimiter;
-        int start = 0;
-
-        // header scan
-        for (int si = 0, sl = 0; si < inlines.length; si++) {
-            final byte b = inlines[si];
-            if (b == '\n') {
-                if (hasHeader)
-                    start = si + 1;
-                line.add(new String(inlines, sl, si - sl));
-                break;
-            } else if (b == fd) {
-                line.add(new String(inlines, sl, si - sl));
-                sl = si + 1;
+        final var mapper = new ObjectMapper();
+        final var tree = mapper.readTree(in);
+        // root of tree must be an array
+        if (!tree.isArray()) {
+            errorMessage = "Error: root of JSON tree must be an array.";
+            return 1;
+        }
+        // count elements of the array
+        final int rowCount = tree.size();
+        // go through json tree once to get the field names and the row count
+        final var fields = this.fields == null ? null : new HashSet<String>();
+        if (this.fields != null) fields.addAll(this.fields);
+        final var fieldsSet = new HashSet<String>();
+        final var fieldsList = new ArrayList<String>();
+        // iterate over the array
+        for (final var row : tree) {
+            // each row must be an object
+            if (!row.isObject()) {
+                errorMessage = "Error: each row value must be an object.";
+                return 1;
+            }
+            // iterate over the fields of the row
+            row.fieldNames().forEachRemaining(f -> {
+                if (fields == null || fields.contains(f))
+                    if (fieldsSet.add(f)) fieldsList.add(f);
+            });
+        }
+        if (fields != null) {
+            // check that all fields are present
+            if (!fieldsSet.containsAll(fields)) {
+                errorMessage = "Error: not all fields specified were present.";
+                return 1;
             }
         }
-        int lineCount = hasHeader ? -1 : 0;
-        for (int i = 0; i < inlines.length; i++)
-            if (inlines[i] == '\n')
-                lineCount++;
-
-        // get field names
-        if (fields == null) {
-            fields = line;
-            if (!hasHeader)
-                for (int i = 0; i < fields.size(); i++)
-                    fields.set(i, "field" + i);
+        final var fieldsMap = new HashMap<String, String>();
+        for (final var fieldName : fieldsList) {
+            fieldsMap.put(fieldName, "");
         }
-        if (fields.size() < line.size())
-            for (int i = fields.size(); i < line.size(); i++)
-                fields.add("field" + i);
+        for (final var row : tree) {
+            row.fields().forEachRemaining(f -> {
+                final var key = f.getKey();
+                if (fieldsSet.contains(key)) {
+                    fieldsMap.put(key, fieldsMap.get(key) + "," + f.getValue().toString());
+                }
+            });
+        }
+        System.err.println("Done.");
 
         // write zip
         try (final var fo = new FileOutputStream(outputFile)) {
             try (final var zip = new ZipOutputStream(fo)) {
-                final int colCount = fields.size();
-                for (int col = 0; col < colCount; col++) {
-                    final var name = fields.get(col);
-                    System.err.print("Writing field " + name + "... ");
-                    final var entry = new ZipEntry(name);
-                    entry.setComment("{rows:" + lineCount + "}");
+                for (final var field : fieldsList) {
+                    System.err.print("Writing field " + field + "... ");
+                    final var entry = new ZipEntry(field);
+                    entry.setComment("{rows:" + rowCount + "}");
                     zip.putNextEntry(entry);
-                    for (int si = start, c = 0, cx = inlines.length; si < cx; si++) {
-                        for (; c < col && si < cx; si++) {
-                            final var b = inlines[si];
-                            if (b == '\n') {
-                                c = col + 1;
-                                System.err.print('!');
-                            } else if (b == fd)
-                                c++;
-                        }
-                        if (c == col) {
-                            final int sf = si;
-                            for (; si < cx; si++) {
-                                var b = inlines[si];
-                                if (b == fd || b == '\n')
-                                    break;
-                            }
-                            zip.write(inlines, sf, si - sf);
-                        }
-                        zip.write('\n');
-                        if (c < colCount - 1) {
-                            while (inlines[si] != '\n') si++;
-                        } else {
-                            for (; ; si++) {
-                                final var b = inlines[si];
-                                if (b == fd)
-                                    System.err.print('?');
-                                if (b == '\n')
-                                    break;
-                            }
-                        }
-                        c = 0;
-                    }
+                    zip.write('[');
+                    zip.write(fieldsMap.get(field).substring(1).getBytes());
+                    zip.write(']');
                     zip.closeEntry();
                     System.err.println("Done.");
                 }
