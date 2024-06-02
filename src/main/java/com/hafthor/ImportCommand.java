@@ -86,7 +86,7 @@ public class ImportCommand extends Command {
                 for (final var field : fieldsList) {
                     System.err.print("Writing field " + field + "... ");
                     final var entry = new ZipEntry(field);
-                    entry.setComment("{rows:" + rowCount + "}");
+                    entry.setComment("{\"rows\":" + rowCount + "}");
                     zip.putNextEntry(entry);
                     zip.write('[');
                     zip.write(fieldsMap.get(field).substring(1).getBytes());
