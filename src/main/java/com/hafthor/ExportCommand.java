@@ -35,28 +35,34 @@ public class ExportCommand extends Command {
         // read the zip file making names and cols
         final var fieldsMap = new HashMap<String, JsonNode>();
         final var fieldsList = new ArrayList<String>();
-        final var fields = this.fields == null ? null : new HashSet<String>();
-        if (this.fields != null) fields.addAll(this.fields);
+        final var fields = this.fields == null ? null : new HashSet<>(this.fields);
         final var mapper = new ObjectMapper();
         try (final var z = new ZipFile(inputFile)) {
             final var e = z.entries();
             while (e.hasMoreElements()) {
                 final var entry = e.nextElement();
-                if (fields == null || fields.contains(entry.getName())) {
-                    fieldsList.add(entry.getName());
+                final var entryName = entry.getName();
+                if (fields == null || fields.contains(entryName)) {
+                    fieldsList.add(entryName);
                     try (final var in = z.getInputStream(entry)) {
-                        System.err.print("Reading " + entry.getName() + "... ");
+                        System.err.print("Reading " + entryName + "... ");
                         final var node = mapper.readTree(in);
                         if (!node.isArray()) {
                             errorMessage = "Error: root of JSON tree must be an array.";
                             return 1;
                         }
-                        fieldsMap.put(entry.getName(), node);
+                        fieldsMap.put(entryName, node);
                         System.err.println("Done.");
                     }
                 }
             }
         }
+        // check that all fields are present
+        if (fields != null && !fieldsMap.keySet().containsAll(fields)) {
+            errorMessage = "Error: not all fields specified were present.";
+            return 1;
+        }
+
         final int rows = fieldsMap.get(fieldsList.get(0)).size();
 
         // write output header

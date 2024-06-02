@@ -42,8 +42,7 @@ public class ImportCommand extends Command {
         // count elements of the array
         final int rowCount = tree.size();
         // go through json tree once to get the field names and the row count
-        final var fields = this.fields == null ? null : new HashSet<String>();
-        if (this.fields != null) fields.addAll(this.fields);
+        final var fields = this.fields == null ? null : new HashSet<>(this.fields);
         final var fieldsSet = new HashSet<String>();
         final var fieldsList = new ArrayList<String>();
         // iterate over the array
@@ -55,29 +54,23 @@ public class ImportCommand extends Command {
             }
             // iterate over the fields of the row
             row.fieldNames().forEachRemaining(f -> {
-                if (fields == null || fields.contains(f))
-                    if (fieldsSet.add(f)) fieldsList.add(f);
+                if ((fields == null || fields.contains(f)) && fieldsSet.add(f)) fieldsList.add(f);
             });
         }
-        if (fields != null) {
-            // check that all fields are present
-            if (!fieldsSet.containsAll(fields)) {
-                errorMessage = "Error: not all fields specified were present.";
-                return 1;
-            }
+        // check that all fields are present
+        if (fields != null && !fieldsSet.containsAll(fields)) {
+            errorMessage = "Error: not all fields specified were present.";
+            return 1;
         }
-        final var fieldsMap = new HashMap<String, String>();
-        for (final var fieldName : fieldsList) {
-            fieldsMap.put(fieldName, "");
-        }
-        for (final var row : tree) {
+        final var fieldsMap = new HashMap<String, StringBuilder>();
+        for (final var fieldName : fieldsList)
+            fieldsMap.put(fieldName, new StringBuilder());
+        for (final var row : tree)
             row.fields().forEachRemaining(f -> {
                 final var key = f.getKey();
-                if (fieldsSet.contains(key)) {
-                    fieldsMap.put(key, fieldsMap.get(key) + "," + f.getValue().toString());
-                }
+                if (fieldsSet.contains(key))
+                    fieldsMap.get(key).append(',').append(f.getValue().toString());
             });
-        }
         System.err.println("Done.");
 
         // write zip
